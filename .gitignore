@@ -7,10 +7,10 @@ package-lock.json
 *.key
 credentials.json
 
-# n8n exports can contain personal data (email addresses in Send Email nodes,
-# credential names). Export to a *-export.json scratch name, scrub it, then
-# commit the cleaned result as workflow.json.
-*-export.json
+# Raw n8n exports contain personal data (email addresses in Send Email nodes,
+# instance-local credential IDs). Drop them in the repo root, run the folder's
+# extract.js to scrub them, and commit the cleaned workflow.json instead.
+/*.json
 
 # OS / editor noise
 .DS_Store

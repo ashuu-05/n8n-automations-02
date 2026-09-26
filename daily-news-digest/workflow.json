@@ -1,0 +1,536 @@
+{
+  "name": "Daily News Digest",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 20
+            }
+          ]
+        }
+      },
+      "id": "b56b2ef0-e697-4370-a904-e294f5d855cf",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -48,
+        -512
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"feeds\": [\n    { \"name\": \"MarketWatch\",   \"url\": \"https://feeds.content.dowjones.io/public/rss/mw_topstories\" },\n    { \"name\": \"Yahoo Finance\", \"url\": \"https://finance.yahoo.com/news/rssindex\" },\n    { \"name\": \"CNBC\",          \"url\": \"https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114\" },\n    { \"name\": \"Seeking Alpha\", \"url\": \"https://seekingalpha.com/market_currents.xml\" },\n    { \"name\": \"Investing.com\", \"url\": \"https://www.investing.com/rss/news.rss\" },\n    { \"name\": \"TechCrunch AI\", \"url\": \"https://techcrunch.com/category/artificial-intelligence/feed/\" },\n    { \"name\": \"Hacker News\",   \"url\": \"https://hnrss.org/frontpage?points=200\" }\n  ]\n}\n",
+        "options": {}
+      },
+      "id": "14cb409a-8483-4ad4-968c-bfebc5dc5d2b",
+      "name": "Feeds",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        464,
+        -512
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "feeds",
+        "options": {}
+      },
+      "id": "2fed3a98-f5a9-4f5e-aba3-bffbdddaa3cc",
+      "name": "Split Out",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        960,
+        -512
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {}
+      },
+      "id": "3d019fc0-7d52-4422-b881-9c4250f9e12f",
+      "name": "RSS Read",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        1328,
+        -512
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b2828eb5-1abd-41af-95e6-b4f4d7b6fdf5",
+              "leftValue": "={{ DateTime.fromISO($json.isoDate) > $now.minus({ hours: 24 }) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "dd2d13f6-9cd7-4302-8e96-2206bfb9d833",
+      "name": "Filter",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        1648,
+        -384
+      ]
+    },
+    {
+      "parameters": {
+        "compare": "selectedFields",
+        "fieldsToCompare": "title",
+        "options": {}
+      },
+      "id": "9bf65cfe-7c6b-4b4c-8320-d6a852ce3b93",
+      "name": "Remove Duplicates",
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "position": [
+        976,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "sortFieldsUi": {
+          "sortField": [
+            {
+              "fieldName": "isoDate",
+              "order": "descending"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e1925413-15d0-41e4-8cc3-7dcb989951b2",
+      "name": "Sort",
+      "type": "n8n-nodes-base.sort",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "maxItems": 250
+      },
+      "id": "231c6219-4618-469d-a049-414d46ca387a",
+      "name": "Limit",
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        1600,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map((item, i) => ({\n  json: {\n    id: i,\n    title: item.json.title || '',\n    link: item.json.link || '',\n    date: item.json.isoDate || '',\n    snippet: (item.json.contentSnippet || '')\n      .replace(/\\s+/g, ' ')\n      .trim()\n      .slice(0, 300),\n  },\n}));\n;"
+      },
+      "id": "04ff90f3-abfc-49b0-a8a8-c668eb61ac5f",
+      "name": "Trim Articles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1888,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "articles",
+        "options": {}
+      },
+      "id": "e0591a24-ed9d-4eaf-8f37-ce4c9f6b835a",
+      "name": "Aggregate",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        2128,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const articles = $input.first().json.articles;\n\nconst SYSTEM_PROMPT = `You are the editor of a daily news briefing for someone who follows the US stock market and the AI industry.\n\nYou will receive a JSON array of news articles from the last 24 hours, each with an id, title, date and short snippet.\n\nSelect the most important stories — at most 12, fewer if the day was quiet.\n\nWHAT MATTERS, in rough priority order:\n- Events that move markets: earnings, guidance changes, M&A, major regulatory action, macro data\n- Major AI developments: new models, significant capability releases, large funding rounds, AI regulation and litigation\n- Large-company moves: product launches, major contracts and partnerships, leadership changes, legal action involving well-known companies\n\nWHAT TO DISCARD:\n- Geopolitics and world events with no clear link to markets or the companies above\n- Crime, sport, entertainment, lifestyle, weather\n- Opinion columns, stock-picking advice, \"3 stocks to buy now\" content\n- Promotional press releases from companies most people have never heard of\n- Anything whose headline promises more than the snippet can support\n\nRULES:\n- If several articles cover the same event, choose the single best one and ignore the rest. Two articles about the same underlying event are duplicates even when they emphasise different angles — a reader must never see the same event twice.\n\n- Rank by genuine significance, not by how dramatic the headline sounds.\n- Do not pad. If only 6 stories genuinely matter today, return 6. Adding a weak story to reach 12 makes the whole briefing less useful.\n- Never invent an id. Every id must come from the input.\n\nFor each story return:\n- id: the article's id, copied exactly from the input\n- category: exactly one of \"Markets\", \"AI & Technology\", \"Companies\"\n- rank: 1 is the most important\n- angle: one sentence on why this matters. This guides the summary written later, so say what the reader should take away — not what the headline already says.\n\nRespond with JSON only:\n{\"stories\":[{\"id\":12,\"category\":\"Markets\",\"rank\":1,\"angle\":\"...\"}]}`;\n\nreturn [{\n  json: {\n    count: articles.length,\n    body: {\n      model: 'anthropic/claude-sonnet-4.5',\n      temperature: 0.2,\n      max_tokens: 3000,\n      response_format: { type: 'json_object' },\n      messages: [\n        { role: 'system', content: SYSTEM_PROMPT },\n        { role: 'user', content: JSON.stringify(articles) },\n      ],\n    },\n  },\n}];\n"
+      },
+      "id": "c3bbc97c-588a-4806-bad5-b3d48da966c3",
+      "name": "Build Selection Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2448,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "116bb520-f845-4b39-bc64-ae7ab8e0776f",
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2752,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.choices[0].message.content;\n\nlet parsed;\ntry {\n  parsed = JSON.parse(raw);\n} catch (e) {\n  // Models occasionally wrap JSON in prose or a code fence — recover it.\n  const m = String(raw).match(/\\{[\\s\\S]*\\}/);\n  if (!m) throw new Error('Model did not return JSON. Got: ' + String(raw).slice(0, 200));\n  parsed = JSON.parse(m[0]);\n}\n\nconst stories = Array.isArray(parsed.stories) ? parsed.stories : [];\nif (!stories.length) throw new Error('Model returned no stories.');\n\n// Reattach the original article for each selected id.\nconst articles = $('Aggregate').first().json.articles;\nconst byId = new Map(articles.map((a) => [a.id, a]));\n\nreturn stories\n  .sort((a, b) => (a.rank || 99) - (b.rank || 99))\n  .map((s) => {\n    const a = byId.get(Number(s.id));\n    if (!a) return null;              // ignore a hallucinated id\n    return {\n      json: {\n        id: a.id,\n        rank: s.rank || 99,\n        category: s.category || 'Companies',\n        angle: s.angle || '',\n        title: a.title,\n        link: a.link,\n        date: a.date,\n        snippet: a.snippet,\n      },\n    };\n  })\n  .filter(Boolean);\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2928,
+        -128
+      ],
+      "id": "947547fa-8d04-4974-93bc-b075251edf31",
+      "name": "Expand Selection"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.link }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 2
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "content"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3216,
+        -256
+      ],
+      "id": "55d31c8f-9429-4d18-956a-18e763ccbf32",
+      "name": "Fetch Articles",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const fetched = $input.all();\nconst selected = $('Expand Selection').all();\n\nconst MAX_CHARS = 6000;\n\nconst stories = fetched.map((f, i) => {\n  const meta = selected[i] ? selected[i].json : {};\n  const text = String(f.json.content || '').replace(/\\s+/g, ' ').trim();\n  const haveText = text.length > 400;\n\n  return {\n    id: meta.id,\n    rank: meta.rank,\n    category: meta.category,\n    angle: meta.angle,\n    title: meta.title,\n    link: meta.link,\n    date: meta.date,\n    have_full_text: haveText,\n    source_text: haveText ? text.slice(0, MAX_CHARS) : '',\n    fallback_snippet: meta.snippet || '',\n  };\n});\n\nconst SYSTEM_PROMPT = `You are writing a daily news briefing for someone who follows the US stock market and the AI industry.\n\nFor each story you receive, write a summary that tells the reader what happened and why it matters, so they can decide whether to open the link.\n\nLENGTH:\n- If have_full_text is true: 4 to 5 sentences, based only on source_text.\n- If have_full_text is false: 2 sentences at most, based only on title and fallback_snippet. Write less rather than padding.\n\nGROUNDING — this matters more than style:\n- Use only what is in source_text or fallback_snippet. Never add background knowledge.\n- Never invent numbers, dates, percentages, quotes, or analyst opinions.\n- If the source does not say why something happened, do not supply a reason.\n- Vague is better than wrong. A reader who is misled loses more than a reader who is underinformed.\n\nSTYLE:\n- Lead with the concrete fact, not throat-clearing. Not \"In a significant development...\" but \"Pfizer agreed to...\"\n- Include specific figures when the source gives them.\n- No hype adjectives. No \"game-changing\", \"seismic\", \"landmark\".\n- Do not restate the headline as your first sentence.\n\nAlso tidy the headline: strip any trailing site name or separator, keep the wording otherwise intact.\n\nRespond with JSON only:\n{\"stories\":[{\"id\":12,\"headline\":\"...\",\"category\":\"Markets\",\"summary\":\"...\"}]}\n\nReturn one entry per input story, keeping the same ids.`;\n\nreturn [{\n  json: {\n    storyCount: stories.length,\n    fullTextCount: stories.filter((s) => s.have_full_text).length,\n    body: {\n      model: 'anthropic/claude-sonnet-4.5',\n      temperature: 0.3,\n      max_tokens: 6000,\n      response_format: { type: 'json_object' },\n      messages: [\n        { role: 'system', content: SYSTEM_PROMPT },\n        { role: 'user', content: JSON.stringify(stories) },\n      ],\n    },\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3536,
+        -256
+      ],
+      "id": "71f7c7d4-2a2f-44d5-b726-e7b07c197f4c",
+      "name": "Build Summary Prompt"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=\t{{ JSON.stringify($json.body) }}",
+        "options": {
+          "timeout": 180000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3872,
+        -256
+      ],
+      "id": "3ed9f537-d493-4f15-b6e6-923267566667",
+      "name": "Write Summaries"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.choices[0].message.content;\n\n// Providers wrap JSON in code fences — recover it rather than trusting them.\nlet parsed;\ntry {\n  parsed = JSON.parse(raw);\n} catch (e) {\n  const m = String(raw).match(/\\{[\\s\\S]*\\}/);\n  if (!m) throw new Error('No JSON in response: ' + String(raw).slice(0, 300));\n  parsed = JSON.parse(m[0]);\n}\n\nconst stories = Array.isArray(parsed.stories) ? parsed.stories : [];\nif (!stories.length) throw new Error('Model returned no stories.');\n\n// The summaries have no links — reattach them from the selection step.\nconst byId = new Map($('Expand Selection').all().map((i) => [i.json.id, i.json]));\nconst sourceCount = $('Aggregate').first().json.articles.length;\n\nconst esc = (s) => String(s == null ? '' : s)\n  .replace(/&/g, '&amp;').replace(/</g, '&lt;')\n  .replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\n\nconst CATEGORIES = ['Markets', 'AI & Technology', 'Companies'];\n\nconst enriched = stories\n  .map((s) => {\n    const meta = byId.get(Number(s.id)) || {};\n    return {\n      headline: s.headline || meta.title || '',\n      summary: s.summary || '',\n      category: CATEGORIES.includes(s.category) ? s.category : 'Companies',\n      link: meta.link || '',\n      rank: meta.rank || 99,\n    };\n  })\n  .filter((s) => s.headline)\n  .sort((a, b) => a.rank - b.rank);\n\nconst story = (s) => `\n<tr><td style=\"padding:0 0 26px 0;\">\n  <a href=\"${esc(s.link)}\" style=\"color:#0b0b0b;text-decoration:none;font-size:17px;font-weight:600;line-height:1.35;display:block;margin-bottom:7px;\">${esc(s.headline)}</a>\n  <div style=\"color:#3f3f3c;font-size:14px;line-height:1.6;margin-bottom:7px;\">${esc(s.summary)}</div>\n  <a href=\"${esc(s.link)}\" style=\"color:#2a78d6;text-decoration:none;font-size:13px;\">Read more &rarr;</a>\n</td></tr>`;\n\nconst section = (cat) => {\n  const list = enriched.filter((s) => s.category === cat);\n  if (!list.length) return '';\n  return `\n<tr><td style=\"padding:0 0 12px 0;\">\n  <div style=\"font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#898781;border-bottom:1px solid #e1e0d9;padding-bottom:8px;\">${esc(cat)}</div>\n</td></tr>${list.map(story).join('')}`;\n};\n\nconst today = new Date().toLocaleDateString('en-US', {\n  weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/New_York',\n});\nconst shortDate = new Date().toLocaleDateString('en-US', {\n  month: 'short', day: 'numeric', timeZone: 'America/New_York',\n});\n\nconst html = `<!doctype html>\n<html><body style=\"margin:0;padding:0;background:#f9f9f7;\">\n<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f9f9f7;padding:24px 12px;\">\n<tr><td align=\"center\">\n<table role=\"presentation\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;background:#ffffff;border:1px solid #e1e0d9;border-radius:10px;padding:28px;font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;\">\n  <tr><td style=\"padding-bottom:18px;border-bottom:2px solid #0b0b0b;\">\n    <div style=\"font-size:20px;font-weight:700;color:#0b0b0b;\">Daily Brief</div>\n    <div style=\"font-size:13px;color:#898781;margin-top:3px;\">${esc(today)} &middot; ${enriched.length} stories</div>\n  </td></tr>\n  <tr><td style=\"height:22px;\"></td></tr>\n  ${CATEGORIES.map(section).join('')}\n  <tr><td style=\"padding-top:14px;border-top:1px solid #e1e0d9;font-size:11px;color:#898781;\">\n    Selected from ${sourceCount} headlines across 7 feeds.\n  </td></tr>\n</table>\n</td></tr></table>\n</body></html>`;\n\nconst top = enriched[0] ? enriched[0].headline : 'No major news';\nconst subject = `Daily Brief — ${shortDate}: ${top.length > 60 ? top.slice(0, 57) + '…' : top}`;\n\n// Plain-text version for clients that refuse HTML.\n// Wrap prose at 72 characters — mail clients reflow long lines unpredictably.\nconst wrap = (s, width = 72, indent = '   ') => {\n  const lines = [];\n  let line = '';\n  for (const w of String(s).split(' ')) {\n    if ((line + ' ' + w).trim().length > width) { lines.push(line.trim()); line = w; }\n    else { line += ' ' + w; }\n  }\n  if (line.trim()) lines.push(line.trim());\n  return lines.map((l) => indent + l).join('\\n');\n};\n\nconst RULE = '-'.repeat(60);\n\nlet n = 0;\nconst textSections = CATEGORIES.map((cat) => {\n  const list = enriched.filter((s) => s.category === cat);\n  if (!list.length) return '';\n  const body = list.map((s) => {\n    n += 1;\n    return `${n}. ${s.headline}\\n\\n${wrap(s.summary)}\\n\\n   ${s.link}`;\n  }).join('\\n\\n\\n');\n  return `\\n${cat.toUpperCase()}\\n${RULE}\\n\\n${body}\\n`;\n}).filter(Boolean).join('\\n');\n\nconst text = `DAILY BRIEF\n${today}  |  ${enriched.length} stories\n${'='.repeat(60)}\n${textSections}\n${RULE}\nSelected from ${sourceCount} headlines across 7 feeds.`;\n\n\nreturn [{ json: { subject, html, text, storyCount: enriched.length } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3744,
+        320
+      ],
+      "id": "8522f14e-edd6-4e99-a936-1959c9c100fe",
+      "name": "Build Email"
+    },
+    {
+      "parameters": {
+        "fromEmail": "you@example.com",
+        "toEmail": "you@example.com",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.text }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        4080,
+        320
+      ],
+      "id": "d0278261-9f45-4bbe-85d3-f1917f704590",
+      "name": "Send an Email",
+      "webhookId": "05bf4723-4026-4837-b364-6e6780038e31"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Feeds": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "RSS Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Read": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicates": {
+      "main": [
+        [
+          {
+            "node": "Sort",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Trim Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trim Articles": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Build Selection Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Selection Prompt": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Expand Selection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Selection": {
+      "main": [
+        [
+          {
+            "node": "Fetch Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Articles": {
+      "main": [
+        [
+          {
+            "node": "Build Summary Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Summary Prompt": {
+      "main": [
+        [
+          {
+            "node": "Write Summaries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Summaries": {
+      "main": [
+        [
+          {
+            "node": "Build Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Email": {
+      "main": [
+        [
+          {
+            "node": "Send an Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "timezone": "America/New_York"
+  },
+  "versionId": "06292658-6e16-42f3-8d5d-312121381afd",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "774b09a019d5718a0a725720ac9a83bf89c4c455a214c05cbbc842b9d94b4fac"
+  },
+  "nodeGroups": [],
+  "id": "QMPODykW1WniN3Za",
+  "tags": []
+}

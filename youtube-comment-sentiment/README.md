@@ -1,52 +1,66 @@
 # YouTube Comment Sentiment Analysis
 
-Paste a YouTube link. Get back an HTML dashboard showing how the audience
-received the video — the sentiment split, what people praised, what they
-criticised, written summaries of each, and the comments that back them up.
+Paste a YouTube link, get an HTML dashboard showing how the audience received the
+video. Tested from 7 to 2,400 comments.
 
-Built for videos with thousands of comments. Tested from 7 to 2,400.
+[`sample-report.html`](sample-report.html) is real output from the test harness.
+Download it and open in a browser.
 
-> **See it:** [`sample-report.html`](sample-report.html) is real output from the
-> test harness. Download it and open in a browser — GitHub won't render it inline.
+The report contains:
 
-## What it produces
+- Total analysed, plus positive / neutral / negative counts and shares
+- A diverging bar showing the sentiment split
+- Ranked charts of what viewers praised and criticised
+- Written summaries for each sentiment
+- The most-liked comments as supporting quotes
+- A table of all aspect counts
 
-- **Stat tiles** — total analysed, positive / neutral / negative counts and shares
-- **A diverging bar** centred on neutral, showing the sentiment split
-- **Two ranked charts** — the aspects viewers praised, and the ones they criticised
-- **Written summaries** for each sentiment, grounded in the actual comments
-- **The most-liked comments** per sentiment, as evidence
-- **A table view** of all aspect counts
+## How it works
 
-Output is a self-contained HTML file you download from the final node. It works
-offline, opens in any browser, and can be emailed as-is.
+```
+Settings              paste your link here
+  → Extract Video ID  handles watch, youtu.be, /shorts/, /live/ links
+  → Get Video Info    title, channel, view count
+  → Fetch Comments    100 per page, paginated
+  → Clean & Batch     strip HTML, dedupe, split into batches of 80
+  → Classify Sentiment  one AI call per batch
+  → Aggregate Results   counts and aspect tallies
+  → Generate Summaries  one AI call on the totals
+  → Build Dashboard     builds the HTML
+  → Create HTML File    downloadable report
+```
+
+**Why batching.** 2,000 comments don't fit usefully in one prompt, and accuracy
+drops well before the context limit. Batches of 80 go to a cheap model (Haiku),
+then one call to a stronger model (Sonnet) writes the summaries from the
+aggregated counts rather than the raw comments. About $0.05 per 2,000-comment run.
+
+**Error handling.** A failed batch is skipped and reported in the report footer
+rather than stopping the run. JSON wrapped in a code fence is recovered. Comment
+text is HTML-escaped so it can't inject markup into the report.
 
 ## Setup
 
-**1. Import the workflow.** In n8n: Workflows → `...` → Import from File →
-`workflow.json`. Or open the file, copy its contents, and paste onto the canvas.
+**1. Import** `workflow.json`.
 
 **2. Create two credentials:**
 
 | Type | Name it | Field `Name` | Field `Value` |
 |---|---|---|---|
 | Query Auth | `YouTube API Key` | `key` | your YouTube Data API v3 key |
-| Header Auth | `OpenRouter` | `Authorization` | `Bearer sk-or-v1-…` |
+| Header Auth | `OpenRouter` | `Authorization` | `Bearer sk-or-v1-...` |
 
-A YouTube key is free: [console.cloud.google.com](https://console.cloud.google.com)
-→ new project → enable "YouTube Data API v3" → Credentials → API key. No billing
-card needed.
+A YouTube key is free: [Google Cloud Console](https://console.cloud.google.com) →
+new project → enable "YouTube Data API v3" → Credentials → API key.
 
-**3. Select them on the HTTP nodes** — `Get Video Info` and `Fetch Comments` use
-the YouTube credential; `Classify Sentiment` and `Generate Summaries` use
-OpenRouter.
+**3. Select them** on the HTTP nodes. YouTube credential on `Get Video Info` and
+`Fetch Comments`, OpenRouter on `Classify Sentiment` and `Generate Summaries`.
 
-**4. Open the `Settings` node**, paste your link into `videoUrl`, and run it.
+**4. Open the Settings node**, paste your link into `videoUrl`, run it.
 
-## Configuration
+## Settings
 
-Everything tunable lives in one **Settings** node, as ordinary n8n fields. You
-should not need to open a Code node to change behaviour.
+Everything is configurable from the `Settings` node. No need to open a Code node.
 
 | Group | Fields |
 |---|---|
@@ -55,84 +69,46 @@ should not need to open a Code node to change behaviour.
 | Classification | `classifyModel`, `classifyTemperature`, `classifyPrompt` |
 | Summary | `summaryModel`, `summaryTemperature`, `summaryPrompt` |
 | Report | `topAspects`, `quotesPerSection`, `reportFileName` |
-| Colours | three light + three dark |
+| Colours | 3 light + 3 dark |
 
-Both full prompts are editable text fields — you can rewrite the sentiment
-rubric or add aspect categories specific to your channel without touching code.
+`maxPages` × 100 is the comment limit. Default 20 = 2,000 comments.
 
-`maxPages` × 100 is the comment ceiling. Default 20 = 2,000 comments.
+Both prompts are editable text fields, so you can change the sentiment rules or
+add aspect categories specific to your channel.
 
-## How it works
+## Development
 
-```
-Settings → Extract Video ID → Get Video Info → Fetch Comments (paginated)
-  → Clean & Batch → Classify Sentiment (×N) → Aggregate Results
-  → Generate Summaries → Build Dashboard → HTML file
-```
-
-**Map-reduce, because one call cannot do this.** 2,000 comments will not fit
-usefully in a single prompt, and a model asked to classify that many at once
-loses accuracy long before it runs out of context. So comments are chunked into
-batches of 80, classified in ~25 parallel-ish calls, and the results aggregated.
-A second call then writes the summaries from the *aggregate* — counts and merged
-aspect tags — never from the raw comments.
-
-That keeps the expensive model reading a small, dense input, and the cheap model
-doing the bulk work. Roughly $0.05 per 2,000-comment run.
-
-**Failure is expected and handled.** A classification batch that errors is
-skipped, the run continues, and the report's footer says how many were lost. A
-model that wraps its JSON in a code fence is recovered by regex rather than
-crashing. Comment text is HTML-escaped, so a comment containing markup cannot
-inject into the report.
-
-## Why the workflow is generated
-
-`workflow.json` is built by `build-workflow.js` from the files in `nodes/` and
-`prompts/`. Editing the JSON directly is possible but unpleasant — the Code
-nodes are embedded as single-line escaped strings, and `build-dashboard.js` is
-17KB on one line.
+`workflow.json` is generated, not hand-edited. The Code node bodies live in
+`nodes/` and the prompts in `prompts/`.
 
 ```bash
-node build-workflow.js      # regenerate workflow.json
-node test-run.js 1500       # run the pipeline offline against mock data
+node build-workflow.js                          # rebuild workflow.json
+node test-run.js 1500                           # run the pipeline offline
+node test-run.js 1340 '{"topAspects":3}'        # with Settings overrides
 ```
 
-The test harness simulates n8n's `$input` / `$()` helpers and runs all four Code
-nodes end to end with no API keys and no cost. It asserts 14 properties,
-including that a failed batch is tolerated, that code-fenced JSON is recovered,
-and that raw comment HTML cannot escape into the output.
+`test-run.js` simulates n8n's `$input` and `$()` helpers and runs all four Code
+nodes against mock data. No API keys, no cost. 14 assertions, including the
+failure paths: a dropped batch, code-fenced JSON, and HTML injection.
 
-```
-node test-run.js 1340 '{"topAspects":3,"batchSize":200}'
-```
-passes Settings overrides, so you can check a config change propagates before
-spending anything.
+Once you edit the workflow in n8n, n8n is the source of truth. Export it before
+rebuilding from these files.
 
-**Once you start editing in n8n, n8n is the source of truth.** Rebuilding from
-these files would overwrite your changes. Export from n8n first if you want to
-bring edits back.
+## Chart colours
 
-## On the chart colours
+Blue / grey / red, not green / red. Red-green is hard to distinguish for the ~8%
+of people with deutan or protan colour vision. The palette was checked with a
+colourblind-safety validator and passes in both light and dark mode.
 
-The palette is blue / grey / red, not the obvious green / red.
+Labels inside the bars are black rather than white for the same reason: black
+clears 4.5:1 contrast on five of the six fills, white on one.
 
-Red–green is the intuitive choice for sentiment and the wrong one: the two are
-close to indistinguishable for the ~8% of viewers with deutan or protan colour
-vision. Blue↔red was checked with a colourblind-safety validator and clears
-separation and contrast thresholds in both light and dark mode.
+All six colours are editable in Settings.
 
-Labels inside the coloured bars are black rather than white, also by measurement
-— black clears 4.5:1 contrast on five of the six fills, white on one. The
-exception (dark-mode neutral) gets white via a CSS override.
+## Limits
 
-You can change all six colours in Settings. Just know what the trade is.
-
-## Known limits
-
-- Top-level comments only; replies are not fetched
-- Cannot read comments on videos where the owner disabled them
-- Aspect clustering is done by the summary model merging synonyms, not by
-  embeddings — good enough in practice, occasionally splits a concept in two
-- `order=relevance` means that if a video has more comments than `maxPages`
-  allows, you get the ones people engaged with rather than an arbitrary slice
+- Top-level comments only, no replies
+- Can't read comments if the owner disabled them
+- Aspects are grouped by the summary model merging synonyms, not by embeddings
+- With `order=relevance`, videos above the comment limit give you the most
+  engaged-with comments rather than a random slice
