@@ -4,6 +4,8 @@ Runs at 8pm every day. Reads 7 RSS feeds, picks the most important stock market
 and AI stories from the last 24 hours, summarises them, and emails a plain-text
 briefing.
 
+![Workflow](daily_news_digest_screenshot.png)
+
 Example output:
 
 ```

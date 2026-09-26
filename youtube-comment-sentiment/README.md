@@ -3,6 +3,8 @@
 Paste a YouTube link, get an HTML dashboard showing how the audience received the
 video. Tested from 7 to 2,400 comments.
 
+![Workflow](workflow_screenshot.png)
+
 [`sample-report.html`](sample-report.html) is real output from the test harness.
 Download it and open in a browser.
 
