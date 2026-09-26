@@ -1,0 +1,20 @@
+node_modules/
+package-lock.json
+
+# Secrets — never commit these
+.env
+.env.*
+*.key
+credentials.json
+
+# n8n exports can contain personal data (email addresses in Send Email nodes,
+# credential names). Export to a *-export.json scratch name, scrub it, then
+# commit the cleaned result as workflow.json.
+*-export.json
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

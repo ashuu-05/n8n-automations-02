@@ -1,0 +1,691 @@
+{
+  "name": "YouTube Comment Sentiment Analysis",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 1. Start\n\n**You press Execute.**\n\nNothing here runs on a schedule or a trigger. The workflow does nothing until you click the button yourself.",
+        "height": 230,
+        "width": 240,
+        "color": 7
+      },
+      "id": "start-note",
+      "name": "Start — what this does",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -70,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "s1",
+              "name": "videoUrl",
+              "type": "string",
+              "value": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+            },
+            {
+              "id": "s2",
+              "name": "maxPages",
+              "type": "number",
+              "value": 20
+            },
+            {
+              "id": "s3",
+              "name": "commentOrder",
+              "type": "string",
+              "value": "relevance"
+            },
+            {
+              "id": "s4",
+              "name": "batchSize",
+              "type": "number",
+              "value": 80
+            },
+            {
+              "id": "s5",
+              "name": "maxCommentLength",
+              "type": "number",
+              "value": 400
+            },
+            {
+              "id": "s6",
+              "name": "classifyModel",
+              "type": "string",
+              "value": "anthropic/claude-haiku-4.5"
+            },
+            {
+              "id": "s7",
+              "name": "classifyTemperature",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "id": "s8",
+              "name": "classifyPrompt",
+              "type": "string",
+              "value": "You are a precise sentiment analyst for YouTube comments.\nYou receive a JSON array of comments, each with an \"id\" and \"text\".\n\nFor EVERY comment decide:\n- sentiment: \"positive\" | \"negative\" | \"neutral\"\n  positive = praise, gratitude, enjoyment, agreement, enthusiasm, affection\n  negative = criticism, complaint, disappointment, disagreement, hostility\n  neutral  = questions, factual statements, timestamps, greetings, off-topic\n             chatter, self-promotion, or genuinely ambiguous text\n- aspects: 0 to 2 short lowercase noun phrases (1-3 words) naming WHAT the\n  comment is about - e.g. \"audio quality\", \"editing\", \"host energy\",\n  \"video length\", \"background music\", \"explanation clarity\", \"thumbnail\",\n  \"ads\", \"camera work\", \"pacing\". Only include an aspect when the comment\n  actually names or clearly implies one; otherwise use [].\n  Reuse identical wording for the same concept across comments.\n\nRules:\n- Judge sarcasm and irony by intent, not by literal wording.\n- Comments may be in any language; read them in that language but always\n  output aspect labels in English.\n- Emoji-only comments: judge by the emoji.\n- Praise for the creator or channel counts as positive even when it does not\n  name a specific aspect.\n- Return exactly one entry per input id. Never omit, merge or invent ids.\n\nRespond with JSON only, in this exact shape:\n{\"results\":[{\"id\":0,\"sentiment\":\"positive\",\"aspects\":[\"editing\"]}]}"
+            },
+            {
+              "id": "s9",
+              "name": "summaryModel",
+              "type": "string",
+              "value": "anthropic/claude-sonnet-4.5"
+            },
+            {
+              "id": "s10",
+              "name": "summaryTemperature",
+              "type": "number",
+              "value": 0.3
+            },
+            {
+              "id": "s11",
+              "name": "summaryPrompt",
+              "type": "string",
+              "value": "You are summarising sentiment analysis of the comments on one YouTube video.\n\nYou will receive: the video metadata, aggregate sentiment counts, raw aspect\ntags with frequencies, and the most-liked example comments per sentiment.\n\nThe raw aspect tags contain duplicates and near-synonyms (\"audio\", \"audio\nquality\", \"sound\") - MERGE synonyms into one canonical aspect and SUM their\ncounts. Never invent a count: every number you output must be a sum of the\ncounts you were given.\n\nGround every claim in the aspects and example comments provided. Where the\nevidence is thin, say so plainly rather than padding. Do not praise or\nflatter the creator; describe what the audience actually said.\n\nRespond with JSON only, in this exact shape:\n{\n  \"overall\": \"2-3 sentences on how the audience received this video\",\n  \"positive_summary\": \"3-5 sentences on what viewers praised\",\n  \"negative_summary\": \"3-5 sentences on what viewers criticised\",\n  \"neutral_summary\": \"2-3 sentences on what the neutral comments consist of\",\n  \"top_positive_aspects\": [{\"aspect\":\"Audio Quality\",\"count\":42}],\n  \"top_negative_aspects\": [{\"aspect\":\"Video Length\",\"count\":17}],\n  \"requests\": [\"concrete things viewers asked for\"],\n  \"recommendations\": [\"actionable suggestions for the creator\"]\n}\n\nAspect labels: Title Case, 1-4 words. Max 8 aspects per list, sorted by count\ndescending. Max 5 requests and 5 recommendations. Use an empty array when\nthere is nothing to report."
+            },
+            {
+              "id": "s12",
+              "name": "topAspects",
+              "type": "number",
+              "value": 8
+            },
+            {
+              "id": "s13",
+              "name": "quotesPerSection",
+              "type": "number",
+              "value": 5
+            },
+            {
+              "id": "s14",
+              "name": "reportFileName",
+              "type": "string",
+              "value": "youtube-sentiment-report.html"
+            },
+            {
+              "id": "s15",
+              "name": "colorPositive",
+              "type": "string",
+              "value": "#2a78d6"
+            },
+            {
+              "id": "s16",
+              "name": "colorNeutral",
+              "type": "string",
+              "value": "#898781"
+            },
+            {
+              "id": "s17",
+              "name": "colorNegative",
+              "type": "string",
+              "value": "#e34948"
+            },
+            {
+              "id": "s18",
+              "name": "colorPositiveDark",
+              "type": "string",
+              "value": "#3987e5"
+            },
+            {
+              "id": "s19",
+              "name": "colorNeutralDark",
+              "type": "string",
+              "value": "#6b6963"
+            },
+            {
+              "id": "s20",
+              "name": "colorNegativeDark",
+              "type": "string",
+              "value": "#e66767"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "settings",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 2. Settings\n\n**Every dial, in one place.**\n\nPaste your video link into `videoUrl`. This is also where you change the AI models, rewrite the prompts, set how many comments to pull, and pick the report colours — all without opening any code.",
+        "height": 230,
+        "width": 240,
+        "color": 7
+      },
+      "id": "settings-note",
+      "name": "Settings — what this does",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        190,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Extract Video ID — Code node (Run Once for All Items)\n// Accepts any common YouTube URL shape, or a bare 11-char video ID.\n\nconst input = $input.first().json;\nconst url = String(input.videoUrl || '').trim();\nconst maxPages = Number(input.maxPages) || 20;\n\nif (!url) {\n  throw new Error('No video URL provided. Open the \"Video URL\" node and paste a YouTube link.');\n}\n\nconst patterns = [\n  /(?:youtube\\.com\\/watch\\?(?:[^&]*&)*v=)([A-Za-z0-9_-]{11})/,\n  /youtu\\.be\\/([A-Za-z0-9_-]{11})/,\n  /youtube\\.com\\/shorts\\/([A-Za-z0-9_-]{11})/,\n  /youtube\\.com\\/live\\/([A-Za-z0-9_-]{11})/,\n  /youtube\\.com\\/embed\\/([A-Za-z0-9_-]{11})/,\n  /youtube\\.com\\/v\\/([A-Za-z0-9_-]{11})/,\n];\n\nlet videoId = null;\nfor (const p of patterns) {\n  const m = url.match(p);\n  if (m) { videoId = m[1]; break; }\n}\nif (!videoId && /^[A-Za-z0-9_-]{11}$/.test(url)) videoId = url;\n\nif (!videoId) {\n  throw new Error(\n    'Could not find a YouTube video ID in: \"' + url + '\". ' +\n    'Expected something like https://www.youtube.com/watch?v=XXXXXXXXXXX'\n  );\n}\n\nreturn [{ json: { videoId, videoUrl: url, maxPages } }];\n"
+      },
+      "id": "extract-video-id",
+      "name": "Extract Video ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 3. Extract Video ID\n\n**Reads the link you pasted.**\n\nPulls the 11-character video ID out of it. Understands normal watch links, youtu.be short links, Shorts, live streams, and a bare ID typed on its own.",
+        "height": 230,
+        "width": 240,
+        "color": 7
+      },
+      "id": "extract-video-id-note",
+      "name": "Extract Video ID — what this does",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        450,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/videos",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "snippet,statistics"
+            },
+            {
+              "name": "id",
+              "value": "={{ $json.videoId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-video-info",
+      "name": "Get Video Info",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 4. Get Video Info\n\n**Asks YouTube about the video itself.**\n\nTitle, channel name, thumbnail, view count, like count. These fill in the header of your report so you know which video it describes.\n\n_Needs the YouTube credential._",
+        "height": 230,
+        "width": 240,
+        "color": 7
+      },
+      "id": "get-video-info-note",
+      "name": "Get Video Info — what this does",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        710,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/commentThreads",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "snippet"
+            },
+            {
+              "name": "videoId",
+              "value": "={{ $('Extract Video ID').first().json.videoId }}"
+            },
+            {
+              "name": "maxResults",
+              "value": "100"
+            },
+            {
+              "name": "order",
+              "value": "={{ $('Settings').first().json.commentOrder }}"
+            },
+            {
+              "name": "textFormat",
+              "value": "plainText"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "responseContainsNextURL",
+              "nextURL": "={{ 'https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&maxResults=100&order=' + $('Settings').first().json.commentOrder + '&textFormat=plainText&videoId=' + $('Extract Video ID').first().json.videoId + '&pageToken=' + $response.body.nextPageToken }}",
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": "={{ $('Settings').first().json.maxPages }}",
+              "requestInterval": 250
+            }
+          }
+        }
+      },
+      "id": "fetch-comments",
+      "name": "Fetch Comments",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 5. Fetch Comments\n\n**Downloads the comments.**\n\nYouTube only hands over 100 at a time, so this keeps asking for the next page until it runs out or hits your `maxPages` limit (20 pages = 2,000 comments).\n\nTop-level comments only — replies are skipped.",
+        "height": 230,
+        "width": 240,
+        "color": 7
+      },
+      "id": "fetch-comments-note",
+      "name": "Fetch Comments — what this does",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        970,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Clean & Batch — Code node (Run Once for All Items)\n// Input: one item per comment page from the YouTube API.\n// Output: one item per LLM batch, each carrying its comments + a compact JSON payload.\n\n// Every tunable lives in the Settings node — edit it there, in the n8n UI.\nconst cfg = $('Settings').first().json;\n\nconst BATCH_SIZE = Number(cfg.batchSize) || 80;\nconst MAX_LEN = Number(cfg.maxCommentLength) || 400;\nconst MODEL = String(cfg.classifyModel || '').trim();\nconst SYSTEM_PROMPT = String(cfg.classifyPrompt || '').trim();\n\nif (!MODEL) {\n  throw new Error('Settings.classifyModel is empty. Set it to an OpenRouter model slug, e.g. anthropic/claude-haiku-4.5');\n}\nif (!SYSTEM_PROMPT) {\n  throw new Error('Settings.classifyPrompt is empty. Open the Settings node and fill in the classification prompt.');\n}\n\nconst clean = (s) => String(s || '')\n  .replace(/<br\\s*\\/?>/gi, ' ')\n  .replace(/<[^>]+>/g, '')\n  .replace(/&quot;/g, '\"')\n  .replace(/&#39;/g, \"'\")\n  .replace(/&apos;/g, \"'\")\n  .replace(/&amp;/g, '&')\n  .replace(/&lt;/g, '<')\n  .replace(/&gt;/g, '>')\n  .replace(/&nbsp;/g, ' ')\n  .replace(/\\s+/g, ' ')\n  .trim();\n\nconst seen = new Set();\nconst comments = [];\n\nfor (const page of $input.all()) {\n  const threads = page.json && Array.isArray(page.json.items) ? page.json.items : [];\n  for (const thread of threads) {\n    const s = thread && thread.snippet && thread.snippet.topLevelComment\n      ? thread.snippet.topLevelComment.snippet\n      : null;\n    if (!s) continue;\n\n    let text = clean(s.textOriginal || s.textDisplay);\n    if (text.length < 2) continue;\n\n    // Drop near-duplicates (bots, copy-paste spam) on a normalised prefix.\n    const key = text.toLowerCase().replace(/[^a-z0-9 ]/g, '').slice(0, 120);\n    if (key && seen.has(key)) continue;\n    if (key) seen.add(key);\n\n    comments.push({\n      id: comments.length,\n      text: text.length > MAX_LEN ? text.slice(0, MAX_LEN) + '…' : text,\n      author: s.authorDisplayName || '',\n      likes: Number(s.likeCount) || 0,\n      publishedAt: s.publishedAt || '',\n    });\n  }\n}\n\nif (comments.length === 0) {\n  throw new Error(\n    'No comments were returned. The video may have comments disabled, ' +\n    'or the YouTube API key may lack access.'\n  );\n}\n\nconst batches = [];\nfor (let i = 0; i < comments.length; i += BATCH_SIZE) {\n  const slice = comments.slice(i, i + BATCH_SIZE);\n  // Only id + text go to the model — keeps the prompt small and cheap.\n  const payload = JSON.stringify(slice.map((c) => ({ id: c.id, text: c.text })));\n\n  batches.push({\n    json: {\n      batchIndex: batches.length,\n      totalComments: comments.length,\n      comments: slice,\n      payload,\n      // The HTTP node sends this verbatim.\n      body: {\n        model: MODEL,\n        temperature: Number(cfg.classifyTemperature) || 0,\n        max_tokens: 8000,\n        response_format: { type: 'json_object' },\n        messages: [\n          { role: 'system', content: SYSTEM_PROMPT },\n          { role: 'user', content: 'Comments:\\n' + payload },\n        ],\n      },\n    },\n  });\n}\n\nreturn batches;\n"
+      },
+      "id": "clean-batch",
+      "name": "Clean & Batch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 6. Clean & Batch\n\n**Tidies the pile up.**\n\nStrips HTML out of the comment text, drops duplicates and copy-paste spam, then splits what is left into stacks of 80.\n\nThe AI reads one stack at a time instead of all 2,000 comments at once.",
+        "height": 230,
+        "width": 240,
+        "color": 7
+      },
+      "id": "clean-batch-note",
+      "name": "Clean & Batch — what this does",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1230,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "timeout": 180000,
+          "batching": {
+            "batch": {
+              "batchSize": 4,
+              "batchInterval": 1000
+            }
+          }
+        }
+      },
+      "id": "classify-sentiment",
+      "name": "Classify Sentiment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "content": "### 7. Classify Sentiment\n\n**The AI reads every comment.**\n\nEach stack goes to the model, which marks every comment positive, negative or neutral and tags what it is about (\"audio quality\", \"too long\").\n\nMany small calls, not one huge one: cheaper, more accurate, and if one stack fails the run carries on without it.\n\n_Needs the OpenRouter credential._",
+        "height": 230,
+        "width": 240,
+        "color": 7
+      },
+      "id": "classify-sentiment-note",
+      "name": "Classify Sentiment — what this does",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1490,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Aggregate Results — Code node (Run Once for All Items)\n// Input: one item per OpenRouter classification response.\n// Output: a single item with counts, raw aspect tallies and evidence samples.\n\nconst SENTIMENTS = ['positive', 'negative', 'neutral'];\n\n// Every tunable lives in the Settings node — edit it there, in the n8n UI.\nconst cfg = $('Settings').first().json;\n\nconst SUMMARY_MODEL = String(cfg.summaryModel || '').trim();\nconst SUMMARY_PROMPT = String(cfg.summaryPrompt || '').trim();\n\nif (!SUMMARY_MODEL) {\n  throw new Error('Settings.summaryModel is empty. Set it to an OpenRouter model slug, e.g. anthropic/claude-sonnet-4.5');\n}\nif (!SUMMARY_PROMPT) {\n  throw new Error('Settings.summaryPrompt is empty. Open the Settings node and fill in the summary prompt.');\n}\n\n// Rebuild the full comment list from the batching node.\nconst byId = new Map();\nfor (const b of $('Clean & Batch').all()) {\n  for (const c of b.json.comments) byId.set(c.id, { ...c });\n}\n\nconst parseContent = (raw) => {\n  if (!raw) return null;\n  try { return JSON.parse(raw); } catch (e) { /* fall through */ }\n  // Models occasionally wrap JSON in prose or a code fence — recover the object.\n  const m = String(raw).match(/\\{[\\s\\S]*\\}/);\n  if (!m) return null;\n  try { return JSON.parse(m[0]); } catch (e) { return null; }\n};\n\nconst counts = { positive: 0, negative: 0, neutral: 0 };\nconst aspects = { positive: {}, negative: {}, neutral: {} };\nlet classified = 0;\nlet failedBatches = 0;\n\nfor (const item of $input.all()) {\n  const j = item.json || {};\n  const raw = j.choices && j.choices[0] && j.choices[0].message\n    ? j.choices[0].message.content\n    : null;\n\n  const parsed = parseContent(raw);\n  if (!parsed || !Array.isArray(parsed.results)) { failedBatches++; continue; }\n\n  for (const r of parsed.results) {\n    const c = byId.get(Number(r.id));\n    if (!c || c.sentiment) continue; // skip unknown ids and double-counting\n\n    const s = SENTIMENTS.includes(r.sentiment) ? r.sentiment : 'neutral';\n    c.sentiment = s;\n    counts[s]++;\n    classified++;\n\n    const list = Array.isArray(r.aspects) ? r.aspects.slice(0, 2) : [];\n    for (const a of list) {\n      const k = String(a).toLowerCase().trim()\n        .replace(/[^a-z0-9 ]/g, '')\n        .replace(/\\s+/g, ' ');\n      if (k.length < 3) continue;\n      aspects[s][k] = (aspects[s][k] || 0) + 1;\n    }\n  }\n}\n\nif (classified === 0) {\n  throw new Error(\n    'Every classification batch failed to parse. Check the OpenRouter credential, ' +\n    'the model slug, and the \"Classify Sentiment\" node output.'\n  );\n}\n\nconst topN = (obj, n) => Object.entries(obj)\n  .sort((a, b) => b[1] - a[1])\n  .slice(0, n)\n  .map(([aspect, count]) => ({ aspect, count }));\n\nconst all = [...byId.values()];\nconst sample = (s, n) => all\n  .filter((c) => c.sentiment === s)\n  .sort((a, b) => b.likes - a.likes)\n  .slice(0, n)\n  .map((c) => ({ text: c.text.slice(0, 220), likes: c.likes, author: c.author }));\n\nconst pct = (n) => (classified ? Number(((n * 100) / classified).toFixed(1)) : 0);\n\nconst v = $('Get Video Info').first().json;\nconst vid = v && Array.isArray(v.items) && v.items[0] ? v.items[0] : {};\nconst snip = vid.snippet || {};\nconst stat = vid.statistics || {};\n\nconst result = {\n  video: {\n    title: snip.title || 'Unknown video',\n    channel: snip.channelTitle || '',\n    publishedAt: snip.publishedAt || '',\n    thumbnail: (snip.thumbnails && snip.thumbnails.medium && snip.thumbnails.medium.url) || '',\n    views: Number(stat.viewCount) || 0,\n    likes: Number(stat.likeCount) || 0,\n    totalComments: Number(stat.commentCount) || 0,\n    url: $('Extract Video ID').first().json.videoUrl,\n  },\n  stats: {\n    fetched: byId.size,\n    classified,\n    failedBatches,\n    positive: counts.positive,\n    negative: counts.negative,\n    neutral: counts.neutral,\n    positivePct: pct(counts.positive),\n    negativePct: pct(counts.negative),\n    neutralPct: pct(counts.neutral),\n  },\n  rawAspects: {\n    positive: topN(aspects.positive, 40),\n    negative: topN(aspects.negative, 40),\n    neutral: topN(aspects.neutral, 15),\n  },\n  samples: {\n    positive: sample('positive', 12),\n    negative: sample('negative', 12),\n    neutral: sample('neutral', 6),\n  },\n  generatedAt: new Date().toISOString(),\n};\n\n// Request body for the summary pass — the HTTP node sends this verbatim.\nresult.body = {\n  model: SUMMARY_MODEL,\n  temperature: cfg.summaryTemperature === undefined ? 0.3 : Number(cfg.summaryTemperature),\n  max_tokens: 4000,\n  response_format: { type: 'json_object' },\n  messages: [\n    { role: 'system', content: SUMMARY_PROMPT },\n    {\n      role: 'user',\n      content: JSON.stringify({\n        video: { title: result.video.title, channel: result.video.channel },\n        counts: {\n          analysed: result.stats.classified,\n          positive: result.stats.positive,\n          neutral: result.stats.neutral,\n          negative: result.stats.negative,\n        },\n        raw_aspect_tags: result.rawAspects,\n        example_comments: result.samples,\n      }),\n    },\n  ],\n};\n\nreturn [{ json: result }];\n"
+      },
+      "id": "aggregate-results",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1820,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 8. Aggregate Results\n\n**Adds it all up.**\n\nHow many positive, negative and neutral. Which topics came up most often, split by whether people were praising or complaining. And which comments got the most likes — those become the quotes in your report.",
+        "height": 230,
+        "width": 240,
+        "color": 7
+      },
+      "id": "aggregate-results-note",
+      "name": "Aggregate Results — what this does",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1750,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "timeout": 180000
+        }
+      },
+      "id": "generate-summaries",
+      "name": "Generate Summaries",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2080,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "content": "### 9. Generate Summaries\n\n**One last AI call, for the writing.**\n\nIt reads the totals, not the raw comments. It merges topic labels that mean the same thing (\"audio\" and \"sound\" become one), then writes the plain-English summaries of what people liked and disliked.",
+        "height": 230,
+        "width": 240,
+        "color": 7
+      },
+      "id": "generate-summaries-note",
+      "name": "Generate Summaries — what this does",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2010,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Build Dashboard — Code node (Run Once for All Items)\n// Input: the OpenRouter summary response.\n// Output: { html } plus QuickChart preview URLs for the n8n output panel.\n\nconst agg = $('Aggregate Results').first().json;\nconst video = agg.video;\nconst stats = agg.stats;\n\n// Every tunable lives in the Settings node — edit it there, in the n8n UI.\nconst cfg = $('Settings').first().json;\n\nconst TOP_ASPECTS = Number(cfg.topAspects) || 8;\nconst QUOTES = Number(cfg.quotesPerSection) || 5;\nconst PALETTE = {\n  posLight: cfg.colorPositive || '#2a78d6', posDark: cfg.colorPositiveDark || '#3987e5',\n  neuLight: cfg.colorNeutral || '#898781', neuDark: cfg.colorNeutralDark || '#6b6963',\n  negLight: cfg.colorNegative || '#e34948', negDark: cfg.colorNegativeDark || '#e66767',\n};\n\n// ---------------------------------------------------------------- summary\nconst raw = (() => {\n  const j = $input.first().json || {};\n  const c = j.choices && j.choices[0] && j.choices[0].message\n    ? j.choices[0].message.content : null;\n  if (!c) return {};\n  try { return JSON.parse(c); } catch (e) { /* fall through */ }\n  const m = String(c).match(/\\{[\\s\\S]*\\}/);\n  if (!m) return {};\n  try { return JSON.parse(m[0]); } catch (e) { return {}; }\n})();\n\nconst fallbackAspects = (arr) => (arr || []).slice(0, TOP_ASPECTS)\n  .map((a) => ({ aspect: a.aspect, count: a.count }));\n\nconst summary = {\n  overall: raw.overall || 'The summary model did not return a verdict.',\n  positive: raw.positive_summary || '',\n  negative: raw.negative_summary || '',\n  neutral: raw.neutral_summary || '',\n  topPositive: Array.isArray(raw.top_positive_aspects) && raw.top_positive_aspects.length\n    ? raw.top_positive_aspects.slice(0, TOP_ASPECTS)\n    : fallbackAspects(agg.rawAspects.positive),\n  topNegative: Array.isArray(raw.top_negative_aspects) && raw.top_negative_aspects.length\n    ? raw.top_negative_aspects.slice(0, TOP_ASPECTS)\n    : fallbackAspects(agg.rawAspects.negative),\n  requests: Array.isArray(raw.requests) ? raw.requests.slice(0, 5) : [],\n  recommendations: Array.isArray(raw.recommendations) ? raw.recommendations.slice(0, 5) : [],\n};\n\n// ---------------------------------------------------------------- helpers\nconst esc = (s) => String(s == null ? '' : s)\n  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')\n  .replace(/\"/g, '&quot;').replace(/'/g, '&#39;');\n\nconst compact = (n) => {\n  n = Number(n) || 0;\n  if (n >= 1e9) return (n / 1e9).toFixed(1).replace(/\\.0$/, '') + 'B';\n  if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\\.0$/, '') + 'M';\n  if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\\.0$/, '') + 'K';\n  return String(n);\n};\nconst comma = (n) => (Number(n) || 0).toLocaleString('en-US');\n\n// Rounded-corner rect as a path. r applies only to the named corners.\nconst barPath = (x, y, w, h, r, corners) => {\n  r = Math.max(0, Math.min(r, w / 2, h / 2));\n  const tl = corners.indexOf('tl') >= 0 ? r : 0;\n  const tr = corners.indexOf('tr') >= 0 ? r : 0;\n  const br = corners.indexOf('br') >= 0 ? r : 0;\n  const bl = corners.indexOf('bl') >= 0 ? r : 0;\n  return [\n    'M', x + tl, y,\n    'H', x + w - tr, tr ? 'A ' + tr + ' ' + tr + ' 0 0 1 ' + (x + w) + ' ' + (y + tr) : '',\n    'V', y + h - br, br ? 'A ' + br + ' ' + br + ' 0 0 1 ' + (x + w - br) + ' ' + (y + h) : '',\n    'H', x + bl, bl ? 'A ' + bl + ' ' + bl + ' 0 0 1 ' + x + ' ' + (y + h - bl) : '',\n    'V', y + tl, tl ? 'A ' + tl + ' ' + tl + ' 0 0 1 ' + (x + tl) + ' ' + y : '',\n    'Z',\n  ].join(' ');\n};\n\n// ------------------------------------------- chart 1: diverging stacked bar\n// Sentiment is an ordered scale, so the bar is centred on the neutral band.\nfunction divergingBar() {\n  const W = 720, H = 104;\n  const PAD = 16;\n  const innerW = W - PAD * 2;\n  const barH = 24;            // spec: bars cap at 24px\n  const barY = 34;\n  const GAP = 2;              // spec: 2px surface gap between segments\n\n  const neg = stats.negativePct, neu = stats.neutralPct, pos = stats.positivePct;\n  const total = neg + neu + pos || 100;\n\n  const wNeg = (neg / total) * innerW;\n  const wNeu = (neu / total) * innerW;\n  const wPos = (pos / total) * innerW;\n\n  // Zero line sits at the middle of the neutral band.\n  const zeroX = PAD + wNeg + wNeu / 2;\n\n  const segs = [\n    { x: PAD, w: wNeg, fill: 'var(--neg)', cls: 'seg-neg', corners: ['tl', 'bl'], label: 'Negative', v: neg, n: stats.negative },\n    { x: PAD + wNeg, w: wNeu, fill: 'var(--neu)', cls: 'seg-neu', corners: [], label: 'Neutral', v: neu, n: stats.neutral },\n    { x: PAD + wNeg + wNeu, w: wPos, fill: 'var(--pos)', cls: 'seg-pos', corners: ['tr', 'br'], label: 'Positive', v: pos, n: stats.positive },\n  ];\n\n  let s = '';\n  for (let i = 0; i < segs.length; i++) {\n    const g = segs[i];\n    // Shrink each segment to leave the 2px surface gap between neighbours.\n    const left = i === 0 ? g.x : g.x + GAP / 2;\n    const w = g.w - (i === 0 || i === segs.length - 1 ? GAP / 2 : GAP);\n    if (w <= 0.5) continue;\n\n    s += '<path class=\"mark\" d=\"' + barPath(left, barY, w, barH, 4, g.corners) + '\" fill=\"' + g.fill + '\"'\n      + ' data-label=\"' + esc(g.label) + '\" data-value=\"' + comma(g.n) + ' comments · ' + g.v + '%\">'\n      + '<title>' + esc(g.label) + ': ' + comma(g.n) + ' (' + g.v + '%)</title></path>';\n\n    // Direct label inside the segment, but only when it genuinely fits.\n    const txt = g.v + '%';\n    if (w > txt.length * 8 + 16) {\n      s += '<text x=\"' + (left + w / 2) + '\" y=\"' + (barY + barH / 2 + 4)\n        + '\" class=\"in-bar ' + g.cls + '\" text-anchor=\"middle\">' + txt + '</text>';\n    }\n  }\n\n  // Zero line + caption. At the extremes (a bar that is all one sentiment) the\n  // line sits on the edge, so the caption anchors inward instead of overflowing.\n  s += '<line x1=\"' + zeroX + '\" y1=\"' + (barY - 8) + '\" x2=\"' + zeroX + '\" y2=\"' + (barY + barH + 8)\n    + '\" class=\"zero\"/>';\n  const capAnchor = zeroX < 70 ? 'start' : (zeroX > W - 70 ? 'end' : 'middle');\n  s += '<text x=\"' + zeroX + '\" y=\"' + (barY + barH + 22) + '\" class=\"axis\" text-anchor=\"'\n    + capAnchor + '\">neutral midpoint</text>';\n  s += '<text x=\"' + PAD + '\" y=\"20\" class=\"axis\">← more negative</text>';\n  s += '<text x=\"' + (W - PAD) + '\" y=\"20\" class=\"axis\" text-anchor=\"end\">more positive →</text>';\n\n  return '<svg viewBox=\"0 0 ' + W + ' ' + H + '\" role=\"img\" aria-label=\"Sentiment share, centred on neutral\">' + s + '</svg>';\n}\n\n// ------------------------------------------------- charts 2 & 3: aspect bars\nfunction aspectChart(items, colorVar, emptyMsg) {\n  if (!items || !items.length) return '<p class=\"empty\">' + esc(emptyMsg) + '</p>';\n\n  const rows = items.slice(0, TOP_ASPECTS);\n  const max = Math.max.apply(null, rows.map((r) => r.count)) || 1;\n\n  const W = 720;\n  const rowH = 34, barH = 20, labelW = 200, valW = 56;\n  const H = rows.length * rowH + 8;\n  const trackX = labelW + 12;\n  const trackW = W - trackX - valW;\n\n  let s = '';\n  rows.forEach((r, i) => {\n    const y = i * rowH + 4;\n    const w = Math.max(2, (r.count / max) * trackW);\n    const label = String(r.aspect || '').replace(/\\b\\w/g, (c) => c.toUpperCase());\n\n    s += '<text x=\"' + labelW + '\" y=\"' + (y + barH / 2 + 4) + '\" class=\"cat\" text-anchor=\"end\">'\n      + esc(label.length > 26 ? label.slice(0, 25) + '…' : label) + '</text>';\n    s += '<path class=\"mark\" d=\"' + barPath(trackX, y, w, barH, 4, ['tr', 'br']) + '\" fill=\"var(' + colorVar + ')\"'\n      + ' data-label=\"' + esc(label) + '\" data-value=\"' + comma(r.count) + ' mentions\">'\n      + '<title>' + esc(label) + ': ' + comma(r.count) + ' mentions</title></path>';\n    s += '<text x=\"' + (trackX + w + 8) + '\" y=\"' + (y + barH / 2 + 4) + '\" class=\"val\">' + comma(r.count) + '</text>';\n  });\n\n  return '<svg viewBox=\"0 0 ' + W + ' ' + H + '\" role=\"img\" aria-label=\"Most mentioned aspects\">' + s + '</svg>';\n}\n\n// ---------------------------------------------------------------- fragments\nconst statTile = (label, value, sub, dotVar) =>\n  '<div class=\"tile\">'\n  + '<div class=\"tile-label\">' + (dotVar ? '<span class=\"dot\" style=\"background:var(' + dotVar + ')\"></span>' : '') + esc(label) + '</div>'\n  + '<div class=\"tile-value\">' + esc(value) + '</div>'\n  + (sub ? '<div class=\"tile-sub\">' + esc(sub) + '</div>' : '')\n  + '</div>';\n\nconst quoteList = (arr) => !arr || !arr.length ? ''\n  : '<ul class=\"quotes\">' + arr.map((q) =>\n    '<li><span class=\"q-text\">' + esc(q.text) + '</span><span class=\"q-meta\">' + comma(q.likes) + ' likes</span></li>'\n  ).join('') + '</ul>';\n\nconst bulletList = (arr) => !arr || !arr.length ? ''\n  : '<ul class=\"bullets\">' + arr.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>';\n\nconst aspectTable = () => {\n  const rows = [];\n  const push = (list, sent) => (list || []).forEach((a) =>\n    rows.push('<tr><td>' + esc(a.aspect) + '</td><td>' + esc(sent) + '</td><td class=\"num\">' + comma(a.count) + '</td></tr>'));\n  push(summary.topPositive, 'Positive');\n  push(summary.topNegative, 'Negative');\n  if (!rows.length) return '';\n  return '<table class=\"tbl\"><thead><tr><th>Aspect</th><th>Sentiment</th><th class=\"num\">Mentions</th></tr></thead>'\n    + '<tbody>' + rows.join('') + '</tbody></table>';\n};\n\n// ---------------------------------------------------------------------- HTML\nconst html = '<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">'\n+ '<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">'\n+ '<title>Comment sentiment — ' + esc(video.title) + '</title><style>'\n+ ':root{color-scheme:light dark;'\n+ '--surface:#fcfcfb;--plane:#f9f9f7;--ink:#0b0b0b;--ink-2:#52514e;--muted:#898781;'\n+ '--grid:#e1e0d9;--axis:#c3c2b7;--ring:rgba(11,11,11,.10);'\n+ '--pos:' + PALETTE.posLight + ';--neu:' + PALETTE.neuLight + ';--neg:' + PALETTE.negLight + ';}'\n+ '@media (prefers-color-scheme:dark){:root:not([data-theme=\"light\"]){'\n+ '--surface:#1a1a19;--plane:#0d0d0d;--ink:#fff;--ink-2:#c3c2b7;--muted:#898781;'\n+ '--grid:#2c2c2a;--axis:#383835;--ring:rgba(255,255,255,.10);'\n+ '--pos:' + PALETTE.posDark + ';--neu:' + PALETTE.neuDark + ';--neg:' + PALETTE.negDark + ';}}'\n+ '[data-theme=\"dark\"]{--surface:#1a1a19;--plane:#0d0d0d;--ink:#fff;--ink-2:#c3c2b7;--muted:#898781;'\n+ '--grid:#2c2c2a;--axis:#383835;--ring:rgba(255,255,255,.10);'\n+ '--pos:' + PALETTE.posDark + ';--neu:' + PALETTE.neuDark + ';--neg:' + PALETTE.negDark + ';}'\n+ '*{box-sizing:border-box}'\n+ 'body{margin:0;background:var(--plane);color:var(--ink);'\n+ 'font:14px/1.55 system-ui,-apple-system,\"Segoe UI\",sans-serif;}'\n+ '.wrap{max-width:860px;margin:0 auto;padding:32px 16px 64px}'\n+ 'header{display:flex;gap:16px;align-items:flex-start;margin-bottom:8px;flex-wrap:wrap}'\n+ 'header img{width:160px;border-radius:8px;border:1px solid var(--ring)}'\n+ 'h1{font-size:20px;line-height:1.3;margin:0 0 4px}'\n+ 'h2{font-size:15px;margin:0 0 14px;letter-spacing:.01em}'\n+ '.sub{color:var(--ink-2);font-size:13px;margin:0}'\n+ '.sub a{color:inherit}'\n+ '.card{background:var(--surface);border:1px solid var(--ring);border-radius:12px;'\n+ 'padding:20px;margin-top:16px}'\n+ '.hero{font-size:48px;font-weight:600;line-height:1.05;margin:2px 0 2px}'\n+ '.hero-label{color:var(--ink-2);font-size:13px}'\n+ '.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:16px}'\n+ '.tile{background:var(--surface);border:1px solid var(--ring);border-radius:12px;padding:14px 16px}'\n+ '.tile-label{color:var(--ink-2);font-size:12px;display:flex;align-items:center;gap:6px}'\n+ '.tile-value{font-size:26px;font-weight:600;margin-top:4px}'\n+ '.tile-sub{color:var(--muted);font-size:12px;margin-top:2px}'\n+ '.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}'\n+ 'svg{width:100%;height:auto;display:block;overflow:visible}'\n+ '.mark{transition:opacity .12s}.mark:hover{opacity:.82;cursor:default}'\n+ 'text{font:12px system-ui,-apple-system,\"Segoe UI\",sans-serif}'\n+ '.axis{fill:var(--muted);font-size:11px}'\n+ '.cat{fill:var(--ink-2)}'\n+ '.val{fill:var(--ink-2);font-variant-numeric:tabular-nums}'\n// Label-inside-fill colours are picked per fill by measured contrast, not by\n// habit: black clears 4.5:1 on every fill except the dark-mode neutral gray.\n+ '.in-bar{fill:#000;font-size:11px;font-weight:600}'\n+ '@media (prefers-color-scheme:dark){:root:not([data-theme=\"light\"]) .in-bar.seg-neu{fill:#fff}}'\n+ '[data-theme=\"dark\"] .in-bar.seg-neu{fill:#fff}'\n+ '.zero{stroke:var(--axis);stroke-width:1}'\n+ '.legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--ink-2)}'\n+ '.legend span{display:flex;align-items:center;gap:7px}'\n+ '.grid2{display:grid;grid-template-columns:1fr;gap:16px}'\n+ '@media(min-width:720px){.grid2{grid-template-columns:1fr 1fr}}'\n+ '.prose{color:var(--ink-2);margin:0}'\n+ '.quotes{list-style:none;padding:0;margin:12px 0 0}'\n+ '.quotes li{border-top:1px solid var(--grid);padding:9px 0;display:flex;gap:12px;justify-content:space-between}'\n+ '.q-text{flex:1}'\n+ '.q-meta{color:var(--muted);font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}'\n+ '.bullets{margin:8px 0 0;padding-left:18px;color:var(--ink-2)}'\n+ '.bullets li{margin:4px 0}'\n+ '.tbl{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}'\n+ '.tbl th,.tbl td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--grid)}'\n+ '.tbl th{color:var(--muted);font-weight:500;font-size:12px}'\n+ '.tbl .num{text-align:right;font-variant-numeric:tabular-nums}'\n+ 'details{margin-top:16px}summary{cursor:pointer;color:var(--ink-2);font-size:13px}'\n+ '.empty{color:var(--muted);font-size:13px;margin:4px 0}'\n+ 'footer{color:var(--muted);font-size:12px;margin-top:28px;text-align:center}'\n+ '#tip{position:fixed;pointer-events:none;opacity:0;transition:opacity .1s;'\n+ 'background:var(--ink);color:var(--surface);padding:6px 9px;border-radius:6px;'\n+ 'font-size:12px;z-index:9;white-space:nowrap}'\n+ '</style></head><body><div class=\"wrap\">'\n\n+ '<header>'\n+ (video.thumbnail ? '<img src=\"' + esc(video.thumbnail) + '\" alt=\"\">' : '')\n+ '<div><h1>' + esc(video.title) + '</h1>'\n+ '<p class=\"sub\">' + esc(video.channel) + ' · ' + compact(video.views) + ' views · '\n+ compact(video.likes) + ' likes<br><a href=\"' + esc(video.url) + '\">' + esc(video.url) + '</a></p></div>'\n+ '</header>'\n\n+ '<div class=\"card\"><div class=\"hero-label\">Comments analysed</div>'\n+ '<div class=\"hero\">' + comma(stats.classified) + '</div>'\n+ '<p class=\"prose\">' + esc(summary.overall) + '</p></div>'\n\n+ '<div class=\"tiles\">'\n+ statTile('Positive', comma(stats.positive), stats.positivePct + '% of analysed', '--pos')\n+ statTile('Neutral', comma(stats.neutral), stats.neutralPct + '% of analysed', '--neu')\n+ statTile('Negative', comma(stats.negative), stats.negativePct + '% of analysed', '--neg')\n+ statTile('On the video', comma(video.totalComments), 'total comments reported by YouTube', '')\n+ '</div>'\n\n+ '<div class=\"card\"><h2>Sentiment share</h2>' + divergingBar()\n+ '<div class=\"legend\">'\n+ '<span><i class=\"dot\" style=\"background:var(--neg)\"></i>Negative ' + comma(stats.negative) + '</span>'\n+ '<span><i class=\"dot\" style=\"background:var(--neu)\"></i>Neutral ' + comma(stats.neutral) + '</span>'\n+ '<span><i class=\"dot\" style=\"background:var(--pos)\"></i>Positive ' + comma(stats.positive) + '</span>'\n+ '</div></div>'\n\n+ '<div class=\"card\"><h2>What viewers praised</h2>'\n+ aspectChart(summary.topPositive, '--pos', 'No recurring positive themes were named.')\n+ '<p class=\"prose\" style=\"margin-top:14px\">' + esc(summary.positive) + '</p>'\n+ quoteList(agg.samples.positive.slice(0, QUOTES)) + '</div>'\n\n+ '<div class=\"card\"><h2>What viewers criticised</h2>'\n+ aspectChart(summary.topNegative, '--neg', 'No recurring criticisms were named.')\n+ '<p class=\"prose\" style=\"margin-top:14px\">' + esc(summary.negative) + '</p>'\n+ quoteList(agg.samples.negative.slice(0, QUOTES)) + '</div>'\n\n+ '<div class=\"card\"><h2>Neutral chatter</h2>'\n+ '<p class=\"prose\">' + esc(summary.neutral) + '</p>'\n+ quoteList(agg.samples.neutral.slice(0, Math.max(1, QUOTES - 1))) + '</div>'\n\n+ (summary.requests.length || summary.recommendations.length\n  ? '<div class=\"grid2\">'\n    + (summary.requests.length ? '<div class=\"card\"><h2>What viewers asked for</h2>' + bulletList(summary.requests) + '</div>' : '')\n    + (summary.recommendations.length ? '<div class=\"card\"><h2>Suggested next steps</h2>' + bulletList(summary.recommendations) + '</div>' : '')\n    + '</div>'\n  : '')\n\n+ '<details><summary>Table view — aspect counts</summary><div class=\"card\">' + aspectTable() + '</div></details>'\n\n+ '<footer>Generated ' + esc(new Date(agg.generatedAt).toUTCString())\n+ ' · ' + comma(stats.fetched) + ' comments fetched, ' + comma(stats.classified) + ' classified'\n+ (stats.failedBatches ? ' · ' + stats.failedBatches + ' batch(es) failed to parse' : '')\n+ '</footer>'\n\n+ '</div><div id=\"tip\"></div><script>'\n+ '(function(){var t=document.getElementById(\"tip\");'\n+ 'document.querySelectorAll(\".mark\").forEach(function(m){'\n+ 'm.addEventListener(\"mousemove\",function(e){'\n+ 't.textContent=m.dataset.label+\" — \"+m.dataset.value;'\n+ 't.style.opacity=1;t.style.left=(e.clientX+14)+\"px\";t.style.top=(e.clientY-10)+\"px\";});'\n+ 'm.addEventListener(\"mouseleave\",function(){t.style.opacity=0;});});})();'\n+ '</script></body></html>';\n\n// ------------------------------------------- QuickChart previews (for n8n UI)\nconst qc = (cfg, w, h) => 'https://quickchart.io/chart?w=' + w + '&h=' + h\n  + '&bkg=%23fcfcfb&c=' + encodeURIComponent(JSON.stringify(cfg));\n\nconst sentimentChartUrl = qc({\n  type: 'horizontalBar',\n  data: {\n    labels: ['Sentiment'],\n    datasets: [\n      { label: 'Negative', data: [stats.negative], backgroundColor: PALETTE.negLight },\n      { label: 'Neutral', data: [stats.neutral], backgroundColor: PALETTE.neuLight },\n      { label: 'Positive', data: [stats.positive], backgroundColor: PALETTE.posLight },\n    ],\n  },\n  options: {\n    legend: { position: 'bottom' },\n    scales: { xAxes: [{ stacked: true }], yAxes: [{ stacked: true }] },\n  },\n}, 640, 200);\n\nconst aspectsChartUrl = qc({\n  type: 'horizontalBar',\n  data: {\n    labels: summary.topPositive.slice(0, 6).map((a) => a.aspect),\n    datasets: [{\n      label: 'Positive mentions',\n      data: summary.topPositive.slice(0, 6).map((a) => a.count),\n      backgroundColor: PALETTE.posLight,\n    }],\n  },\n  options: { legend: { display: false } },\n}, 640, 280);\n\nreturn [{\n  json: {\n    html,\n    video,\n    stats,\n    summary,\n    previews: { sentiment: sentimentChartUrl, topPositiveAspects: aspectsChartUrl },\n  },\n}];\n"
+      },
+      "id": "build-dashboard",
+      "name": "Build Dashboard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2340,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 10. Build Dashboard\n\n**Draws the report.**\n\nTurns the numbers into a web page: the sentiment bar, the stat boxes, the two topic charts, the summaries and the example comments.\n\nLayout and styling live in this node's code.",
+        "height": 230,
+        "width": 240,
+        "color": 7
+      },
+      "id": "build-dashboard-note",
+      "name": "Build Dashboard — what this does",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2270,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "html",
+        "options": {
+          "fileName": "={{ $('Settings').first().json.reportFileName }}",
+          "encoding": "utf8"
+        }
+      },
+      "id": "create-html-file",
+      "name": "Create HTML File",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        2600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 11. Create HTML File\n\n**Saves it as a file you can open.**\n\nRun the workflow, then click the download icon in this node's output panel. The file opens in any browser and can be emailed or shared as-is.",
+        "height": 230,
+        "width": 240,
+        "color": 7
+      },
+      "id": "create-html-file-note",
+      "name": "Create HTML File — what this does",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2530,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## YouTube comment sentiment analysis\n\nPaste a video link, get a report: how many comments were positive, negative or neutral, what people praised, what they complained about, and the quotes that back it up.\n\n### Set this up once, before the first run\n\n**1.** Create a **Query Auth** credential named `YouTube API Key` — Name: `key`, Value: your YouTube Data API v3 key.\nSelect it on *Get Video Info* and *Fetch Comments*.\n\n**2.** Create a **Header Auth** credential named `OpenRouter` — Name: `Authorization`, Value: `Bearer sk-or-v1-…`\nSelect it on *Classify Sentiment* and *Generate Summaries*.\n\n**3.** Open **Settings**, paste your link into `videoUrl`, press Execute.\n\n_A 2,000-comment run takes a few minutes and costs a few cents. Start with `maxPages` at 5 to try it out._",
+        "height": 460,
+        "width": 480,
+        "color": 5
+      },
+      "id": "note-setup",
+      "name": "Read me first",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -520
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Before you change the colours\n\nThe defaults were checked with a colourblind-safety validator.\n\nRed/green is the obvious choice for sentiment and the wrong one — the two are hard to tell apart for roughly 8% of viewers. Blue ↔ red passes in both light and dark mode.\n\nChange them if you want; just know what the trade is.",
+        "height": 280,
+        "width": 300,
+        "color": 3
+      },
+      "id": "note-colours",
+      "name": "About the colours",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2380,
+        -330
+      ]
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Extract Video ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Video ID": {
+      "main": [
+        [
+          {
+            "node": "Get Video Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Video Info": {
+      "main": [
+        [
+          {
+            "node": "Fetch Comments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Comments": {
+      "main": [
+        [
+          {
+            "node": "Clean & Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean & Batch": {
+      "main": [
+        [
+          {
+            "node": "Classify Sentiment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Sentiment": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Results": {
+      "main": [
+        [
+          {
+            "node": "Generate Summaries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Summaries": {
+      "main": [
+        [
+          {
+            "node": "Build Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Dashboard": {
+      "main": [
+        [
+          {
+            "node": "Create HTML File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
